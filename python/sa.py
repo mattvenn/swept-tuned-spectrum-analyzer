@@ -10,15 +10,17 @@ import matplotlib.pyplot as plt
 
 
 # sweep parameters
-start_freq= 10.0 # Hz
-end_freq = 1000.0
-step_freq = 20
+start_freq= 50.0 # Hz
+step_freq = 100
 
 # sampling rate
-fs = float(4000)
+fs = float(10000)
+end_freq = fs / 2
+freq_bands = range(int(start_freq), int(end_freq), step_freq)
+print("sampling rate %d Hz" % fs)
 
 # IF filter params
-IF_bw = 20
+IF_bw = 50
 IF_order = 3
 
 
@@ -27,7 +29,6 @@ def butter_bandpass(lowcut, highcut, fs, order=5):
     nyq = 0.5 * fs
     low = lowcut / nyq
     high = highcut / nyq
-    print(low, high)
     b, a = signal.butter(order, [low, high], btype='bandpass')
     return b, a
 
@@ -39,27 +40,30 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 
 
 # detector parameters
-detect_samps = 500
+detect_samps = 400
+print("detector samples = %d" % detect_samps)
 
 # LPF parameters - just take average for now
 
 
 # generate sweep
-sweep_time = (((end_freq - start_freq) / step_freq) * detect_samps) / fs
+sweep_samples = (((end_freq - start_freq) / step_freq) * detect_samps)
+sweep_time = sweep_samples / fs
 samples = np.linspace(0, sweep_time, int(fs*sweep_time), endpoint=False)
-print("sweep time = %f (s)" % sweep_time)
+print("sweep samples = %d (%f s), from %d to %d Hz" % (sweep_samples, sweep_time, start_freq, end_freq))
+print("%d freq bands" % len(freq_bands))
 sweep = signal.chirp(samples, start_freq, sweep_time, end_freq)
 
 # signal params - use a sine for now
-input_freq = 50 # Hz
-#in_signal = np.sin(2 * np.pi * input_freq * samples)
-in_signal = signal.square(2 * np.pi * input_freq * samples)
+input_freq = 1500 * 2 # Hz
+print("input signal freq %d Hz" % input_freq)
+in_signal = np.sin(2 * np.pi * input_freq * samples)
+#in_signal = signal.square(2 * np.pi * input_freq * samples)
 
 def generate_IF_filters():
     IFs = []
     # for each frequency, generate a bp
-    for freq in range(int(start_freq), int(end_freq), step_freq):
-        print(freq)
+    for freq in freq_bands:
         b, a = butter_bandpass(freq-IF_bw/2, freq+IF_bw/2, fs, order=IF_order)
         w, h = signal.freqz(b, a)
         IFs.append((w,h))
@@ -72,14 +76,14 @@ def plots():
     # plot input signal
     fig = plt.figure()
     ax = fig.add_subplot(num_plots,1,1)
-    ax.set_title("input")
+    ax.set_title("input signal at %d Hz" % input_freq)
     ax.set_xlabel('time')
     ax.set_ylabel('amp')
     ax.plot(samples, in_signal)
 
     # plot sweep signal
     ax = fig.add_subplot(num_plots,1,2)
-    ax.set_title("sweep")
+    ax.set_title("sweep from %d to %d Hz" % (start_freq, end_freq))
     ax.set_xlabel('time')
     ax.set_ylabel('amp')
     ax.plot(samples, sweep)
@@ -88,23 +92,23 @@ def plots():
     mixed = sweep * in_signal
 
     ax = fig.add_subplot(num_plots,1,3)
-    ax.set_title("IF")
+    ax.set_title("IF (input * sweep)")
     ax.set_xlabel('time')
     ax.set_ylabel('amp')
     ax.plot(samples, mixed)
 
     # bandpass
     ax = fig.add_subplot(num_plots,1,4)
-    ax.set_title('Butterworth filter frequency response')
+    ax.set_title('%d band pass filters' % len(freq_bands))
     ax.set_xlabel('Frequency hz')
-    ax.set_ylabel('Amplitude [dB]')
+    ax.set_ylabel('[dB]')
     IFs = generate_IF_filters()
     for IF in IFs:
         w, h = IF
         ax.plot((fs * 0.5 / np.pi) * w, abs(h))
 
     ax = fig.add_subplot(num_plots,1,5)
-    ax.set_title("filtered")
+    ax.set_title("filtered IF in each band")
     ax.set_xlabel('time')
     ax.set_ylabel('amp')
     # then for each bandpass, feed it that section of the signal that matches with the sweep
@@ -112,7 +116,7 @@ def plots():
     accumulators = []
     bands = []
     start_samp = 0
-    for freq in range(int(start_freq), int(end_freq), step_freq):
+    for freq in freq_bands:
         data = mixed[start_samp:start_samp+detect_samps]
         start_samp += detect_samps
         filtered = butter_bandpass_filter(data, freq-IF_bw/2, freq+IF_bw/2, fs, order=IF_order)
@@ -120,17 +124,17 @@ def plots():
         bands.append(freq)
         accumulators.append(np.sum(np.abs(filtered)))
     
-    print(len(samples), len(filtered_signal))
     ax.plot(samples, filtered_signal)
 
     ax = fig.add_subplot(num_plots,1,6)
-    ax.set_title("bands")
+    ax.set_title("summed absolute filtered IF in each band")
     ax.set_xlabel('freq')
     ax.set_ylabel('amp')
     # then for each bandpass, feed it that section of the signal that matches with the sweep
     ax.plot(bands, accumulators)
 
     # show it
+    #plt.tight_layout()
     plt.grid(True)
     plt.show()
 
