@@ -20,8 +20,9 @@ freq_bands = range(int(start_freq), int(end_freq), step_freq)
 print("sampling rate %d Hz" % fs)
 
 # IF filter params
-IF_bw = 100
-IF_order = 5
+IF_bw = 75
+IF_order = 3
+IF_freq = 500
 
 
 # https://stackoverflow.com/questions/12093594/how-to-implement-band-pass-butterworth-filter-with-scipy-signal-butter
@@ -58,10 +59,10 @@ print("%d freq bands" % len(freq_bands))
 sweep = signal.chirp(samples, start_freq, sweep_time, end_freq)
 
 # signal params - use a sine for now
-input_freq = 500 # Hz
+input_freq = 1500 # Hz
 print("input signal freq %d Hz" % input_freq)
 in_signal = np.sin(2 * np.pi * input_freq * samples)
-in_signal = signal.square(2 * np.pi * input_freq * samples)
+#in_signal = signal.square(2 * np.pi * input_freq * samples)
 
 def plots():
     # do all the plots
@@ -93,10 +94,10 @@ def plots():
 
     # bandpass
     ax = fig.add_subplot(num_plots,1,4)
-    ax.set_title('%d order low pass filter at %d Hz' % (IF_order, IF_bw))
+    ax.set_title('%d order %d Hz band pass filter at %d Hz' % (IF_order, IF_bw, IF_freq))
     ax.set_xlabel('Frequency hz')
     ax.set_ylabel('[dB]')
-    b, a = butter_bandpass(IF_bw, IF_bw, fs, btype="low", order=IF_order)
+    b, a = butter_bandpass(IF_freq-IF_bw/2, IF_freq+IF_bw/2, fs, btype="bandpass", order=IF_order)
     w, h = signal.freqz(b, a)
     ax.plot((fs * 0.5 / np.pi) * w, abs(h))
 
@@ -115,7 +116,7 @@ def plots():
         filtered = signal.lfilter(b, a, data)
 
         filtered_signal.extend(filtered)
-        bands.append(freq)
+        bands.append(freq + IF_freq)
         accumulators.append(np.sum(np.abs(filtered)))
     
     ax.plot(samples, filtered_signal)
