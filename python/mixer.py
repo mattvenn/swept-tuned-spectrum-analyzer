@@ -6,13 +6,13 @@ import matplotlib.animation as animation
 LW = 0.5
 # sampling rate
 fs = float(10000)
-time = 0.01 # s
+time = 0.1 # s
 input_freq1 = 1000 # hz
 input_freq2 = 1300 # hz
 start_freq = 0
 stop_freq = int(fs/2)
-step_freq = 100
-IF_filt_freq = 100
+step_freq = 50
+IF_filt_freq = 50
 
 samples = np.linspace(0, time, int(fs*time), endpoint=False)
 
@@ -39,7 +39,7 @@ def butter_bandpass_filter(data, lowcut, highcut, fs, order=5):
 b, a = butter_bandpass(IF_filt_freq, IF_filt_freq, fs, btype="low")
 
 def plots(sweep_freq, sig_LO,sig_input,mixed,fft1,fft2,fftmixed, filtered, filtered_time):
-    print("input signal 1 freq %d Hz" % sweep_freq)
+    print("LO freq %d Hz" % sweep_freq)
     LO = np.sin(2 * np.pi * sweep_freq * samples) * 0.5
 
 
@@ -92,7 +92,7 @@ def setup_plots():
     ax1.set_title("input signals and LO %d->%d Hz" % (start_freq, stop_freq))
     ax1.set_xlabel('time')
     ax1.set_ylabel('amp')
-    ax1.set_xlim(0, time)
+    ax1.set_xlim(0, time/10)
     ax1.set_ylim(-1, 1)
     ax1.grid()
 
@@ -103,7 +103,7 @@ def setup_plots():
     ax2.set_title("mixed = inputs * LO")
     ax2.set_xlabel('time')
     ax2.set_ylabel('amp')
-    ax2.set_xlim(0, time)
+    ax2.set_xlim(0, time/10)
     ax2.set_ylim(-1, 1)
     ax2.grid()
     mixed, = ax2.plot([], [], 'b', linewidth=LW)
@@ -131,15 +131,15 @@ def setup_plots():
     ax5 = fig.add_subplot(3,2,5)
     ax5.set_title("filtered IF")
     ax5.grid()
-    ax5.set_xlim(0, time)
-    ax5.set_ylim(-0.1, 0.1)
+    ax5.set_xlim(0, time/10)
+    ax5.set_ylim(-0.5, 0.5)
     filtered, = ax5.plot([], [], 'b', linewidth=LW)
 
     ax6 = fig.add_subplot(3,2,6)
     ax6.set_title("filtered IF over time")
     ax6.grid()
     ax6.set_xlim(0, fs/2)
-    ax6.set_ylim(0, 10)
+    ax6.set_ylim(0, 200)
     filtered_time, = ax6.plot([], [], 'b', linewidth=LW)
 
     plt.tight_layout()
@@ -150,6 +150,12 @@ def freq_range():
     return iter( range(start_freq, stop_freq, step_freq))
 
 if __name__ == '__main__':
+    print(start_freq, stop_freq, step_freq)
     fig, sig_LO, sig_input, mixed, fft1, fft2, fftmixed, filtered, filtered_time = setup_plots()
-    line_ani = animation.FuncAnimation(fig, plots, freq_range, repeat=True, fargs=(sig_LO, sig_input, mixed, fft1, fft2, fftmixed, filtered, filtered_time), interval=50, blit=False)
-    plt.show()
+    sa_anim = animation.FuncAnimation(fig, plots, freq_range, repeat=False, fargs=(sig_LO, sig_input, mixed, fft1, fft2, fftmixed, filtered, filtered_time), interval=5, blit=False)
+
+    #plt.show()
+    # write a movie
+    FFMpegWriter = animation.writers['ffmpeg']
+    writer = FFMpegWriter(fps=25, bitrate=1800)
+    sa_anim.save('im.mp4', writer=writer)
